@@ -1,0 +1,77 @@
+火山图
+setwd("C:/Users/lenovo/Desktop")
+demo <- read.table(file = "XXX.txt", header = T, sep = "\t")
+head(demo)
+library(ggplot2)
+volcano <- ggplot(demo, aes(x=logFC, y=-1*log10(P.Value)))
+volcano+geom_point(aes(color=significant))+ scale_color_manual(values =c("red","grey","blue"))+ labs(title="Volcanoplot",x="log2(foldchange)", y="-log10(pvalue)")+geom_hline(yintercept=1.30103,linetype=3)+geom_vline(xintercept=c(-0.5,0.5),linetype=3)+theme(legend.position='none')
+significant是根据up，down，no分组的组名
+
+无signigicant分组方法
+demo$threshold[demo$P.Value < 0.05 & demo$logFC > 0.5] = "up"
+demo$threshold[demo$P.Value < 0.05 & demo$logFC < -0.5] = "down"
+demo$threshold[demo$P.Value > 0.05 | (demo$logFC >= -0.5 & demo$logFC <= 0.5)] = "non"
+ggplot(demo,aes(x=logFC,y=-log10(P.Value),colour=threshold))+ xlab("log2 Fold Change")+ ylab("-log10 P.Value")+ geom_point()+ scale_color_manual(values =c("blue","grey","red"))+ geom_hline(yintercept=1.30103,linetype=3)+ geom_vline(xintercept=c(-0.5,0.5),linetype=3)+ theme(legend.title = element_blank(),panel.grid.major = element_blank(),panel.grid.minor = element_blank())
+
+第一行为设置R的工作路径，就是说你要给R一个地址，让它能够找到你的文件放在哪，之后它才能将文件读取出来，这里X代表你的磁盘，
+//后面跟具体的文件路径，这个文件路径应该是你存放之前生成的TOP250差异基因火山图处理文件.txt格式文件的路径，存在哪就把相应
+的路径写在上面代码setwd（"  "）的双引号里。
+第二行为读取文件的名称，R知道了去哪找你的文件，但是它还不知道去找的文件叫什么，这一行代码的作用就是告诉R你的文件叫什么，
+将你文件的名字复制到上面代码file = "   "的双引号里。
+第三行的作用主要是显示一下R读取的内容，看看它到底找到了你的文件没有，读取的内容是否无误。
+第四行为调用ggplot2扩展程序，之前我们只是把它安装好了，就好比它被我们编进了一个班，但是你想让它起来回答问题，你就得先点它的名字。
+第五行和第六行是绘制火山图的具体参数代码，我们不用管，只需要复制到R里执行就好了，唯一需要注意的是第五行中P.Value<0.05一项，
+因为大家数据不尽相同，因此需要根据你差异基因里面的P值去相应的调整P.Value，有时候0.05或者0.01做出来的图并不一定是最合适的，
+这时候你就需要调整一下，将它进一步缩小，直到绘制出一个适合的图形。
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+clusterprofiler富集分析
+## 加载R包
+suppressMessages(library(clusterProfiler))
+#获得基因列表
+gene <- rownames(allDiff)
+#基因名称转换，返回的是数据框
+gene = bitr(gene, fromType="SYMBOL", toType="ENTREZID", OrgDb="org.Hs.eg.db")
+de <- gene$ENTREZID
+## GO分析                       
+go <- enrichGO(
+  gene          = de,
+                
+  keyType = "ENTREZID",
+
+                  OrgDb         = org.Hs.eg.db,
+
+                  ont           = "All",
+
+                  pAdjustMethod = "BH",
+
+                  pvalueCutoff  = 0.01,
+
+                  qvalueCutoff  = 0.05,
+
+                  readable      = TRUE)
+
+library(ggplot2)
+p <- dotplot(go, split="ONTOLOGY") +facet_grid(ONTOLOGY~., scale="free")
+p
+
+EGG <- enrichKEGG(
+    gene          = de,
+    keyType     = "kegg",
+    organism   = 'hsa',
+    pvalueCutoff      = 0.05,
+    pAdjustMethod     = "BH",
+    qvalueCutoff  = 0.05, use_internal_data = TRUE
+)
+最后一个参数可以调用在线的KEGG数据库或者使用KEGG.db
+dotplot(EGG)
+
+allDiff是有基因名的文件（探针ID转换）
+gene就是差异基因对应的向量，keyType指定基因ID的类型，默认为ENTREZID, 该参数的取值可以参考keytypes(org.Hs.eg.db)的结果，
+ 建议采用ENTREZID, OrgDb指定该物种对应的org包的名字，ont代表GO的3大类别，BP, CC, MF; pAdjustMethod指定多重假设检验矫正的方法，
+cufoff指定对应的阈值，readable=TRUE代表将基因ID转换为gene symbol。
+
+参考网站 http://www.360doc.com/content/19/1024/19/66983899_868850865.shtml
+https://blog.csdn.net/weixin_43569478/article/details/83744242
+https://www.jianshu.com/p/feaefcbdf986 
